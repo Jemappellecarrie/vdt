@@ -1,0 +1,11 @@
+name: hopper_matched_budget_depth_sweep
+family: matched_budget_depth_sweep
+description: Approximate matched-parameter Hopper depth sweep across vanilla_dev, BAR static, and VCDR state_rtg_value.
+env_name: hopper-medium-v2
+seeds: [0]
+model_variants: [vanilla_dev, bar, vcdr]
+num_layers: [6, 12, 18]
+output_root: vdt_dev/outputs
+budget_mode: matched_params
+budget_reference: 6-layer width 256 head 4
+

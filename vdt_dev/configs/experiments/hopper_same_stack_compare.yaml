@@ -1,0 +1,10 @@
+name: hopper_same_stack_compare
+family: same_stack_compare
+description: Hopper same-stack attribution compare across vanilla_dev, BAR static, and VCDR state_rtg_value.
+env_name: hopper-medium-v2
+seeds: [0]
+model_variants: [vanilla_dev, bar, vcdr]
+query_modes: [static, static, state_rtg_value]
+num_layers: [6]
+output_root: vdt_dev/outputs
+

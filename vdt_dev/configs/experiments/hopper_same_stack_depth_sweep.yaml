@@ -1,0 +1,9 @@
+name: hopper_same_stack_depth_sweep
+family: same_stack_depth_sweep
+description: Equal-width Hopper depth sweep across vanilla_dev, BAR static, and VCDR state_rtg_value.
+env_name: hopper-medium-v2
+seeds: [0]
+model_variants: [vanilla_dev, bar, vcdr]
+num_layers: [6, 12, 18]
+output_root: vdt_dev/outputs
+

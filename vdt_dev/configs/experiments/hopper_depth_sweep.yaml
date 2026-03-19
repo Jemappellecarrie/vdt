@@ -1,0 +1,8 @@
+name: hopper_depth_sweep
+family: depth_sweep
+description: Hopper medium Step 3 depth sweep over 6/12/18 layers for static and state_rtg_value.
+env_name: hopper-medium-v2
+seeds: [0]
+query_modes: [static, state_rtg_value]
+num_layers: [6, 12, 18]
+output_root: vdt_dev/outputs

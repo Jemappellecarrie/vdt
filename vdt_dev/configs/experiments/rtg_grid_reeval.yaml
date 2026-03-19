@@ -1,0 +1,6 @@
+name: rtg_grid_reeval
+family: reeval
+description: RTG-grid reevaluation preset for Step 3 alignment analysis.
+rtg_grid: [7200, 3600, 1800, 720]
+num_eval_episodes: 5
+selector: best

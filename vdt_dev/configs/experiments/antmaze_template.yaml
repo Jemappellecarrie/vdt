@@ -1,0 +1,9 @@
+name: antmaze_template
+family: future_sparse_reward
+description: Future sparse-reward template once AntMaze is available in the local environment.
+env_name: antmaze-umaze-v2
+query_modes: [state_rtg_value]
+num_layers: [6]
+seeds: [0]
+notes:
+  - Template only for Step 3; no new routing channels are introduced here.

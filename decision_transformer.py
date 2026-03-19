@@ -36,6 +36,9 @@ class DecisionTransformer(TrajectoryModel):
             n_embd=hidden_size,
             **kwargs
         )
+        # This local GPT-2 implementation expects the legacy `n_ctx` field.
+        if not hasattr(config, "n_ctx"):
+            config.n_ctx = config.n_positions
         self.config = config
         self.scale = scale
         self.rtg_no_q= False

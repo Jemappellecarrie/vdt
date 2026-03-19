@@ -1,0 +1,11 @@
+name: gym_same_stack_sweep
+family: same_stack_env_sweep
+description: Same-stack gym sweep over hopper/walker2d/halfcheetah for vanilla_dev, BAR static, and VCDR state_rtg_value.
+envs: [hopper-medium-v2, walker2d-medium-v2, halfcheetah-medium-v2]
+seeds: [0]
+model_variants: [vanilla_dev, bar, vcdr]
+num_layers: [6]
+output_root: vdt_dev/outputs
+notes:
+  - Uses shared hyperparameters with env_name override; runner recomputes env metadata per environment at runtime.
+

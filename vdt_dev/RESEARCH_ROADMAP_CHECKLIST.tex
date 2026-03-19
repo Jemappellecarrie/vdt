@@ -1,0 +1,140 @@
+\documentclass[11pt,UTF8,fontset=fandol]{ctexart}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs,tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black
+}
+
+\setlist[itemize]{leftmargin=1.6em}
+\setlist[enumerate]{leftmargin=1.8em}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\vdt}{\textsc{VDT}}
+
+\title{\textbf{VDT 科研路线图执行清单}}
+\author{\texttt{vdt\_dev/} 当前仓库状态对应的行动版 checklist}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{一句话判断}
+
+当前这篇论文最强的故事不是“又发明了一个复杂 RL 算法”，而是：
+
+\begin{quote}
+在不改 \vspace{0.2em}Q/V objective、不改 sampling 语义的前提下，把 value guidance 从 loss / RTG 扩展到 actor 的 depth-wise routing，并用 same-stack baseline 做干净归因。
+\end{quote}
+
+所以主线必须收束在：
+
+\begin{itemize}
+  \item \texttt{vanilla\_dev} vs.\ BAR vs.\ VCDR 的同栈比较；
+  \item value-conditioned depth routing 是否真的比 static BAR 更强；
+  \item 这个结论在 online / depth / alignment 里至少有一条 strengthening 证据。
+\end{itemize}
+
+\section{未来 7 天最重要的事}
+
+\begin{enumerate}
+  \item \textbf{先拿下 Hopper same-stack attribution。}
+  目标：确认 BAR 是否真优于 \texttt{vanilla\_dev}，以及 VCDR 是否真在 BAR 之上继续增益。\\
+  完成标准：有可聚合的三路结果、可读的主表/主图、能判断谁是主线模型。
+
+  \item \textbf{接着跑 Hopper query-mode sweep。}
+  目标：确认 \texttt{state\_rtg\_value} 是否优于 \texttt{state} / \texttt{state\_rtg} / \texttt{static}。\\
+  完成标准：query-mode 排序明确，知道 detached \(V(s_t)\) 这条线值不值得成为论文主命题的一部分。
+
+  \item \textbf{同步做 Hopper online compare。}
+  目标：给这篇论文补一个更接近原始 VDT narrative 的 stronger setting。\\
+  完成标准：至少知道 online 是“主文第二支柱”还是“附录支持线”。
+\end{enumerate}
+
+\section{接下来 2--4 周推进顺序}
+
+\begin{enumerate}
+  \item \textbf{先补种子。} 只给最关键的 1--2 个结论补 3--4 seeds，不要全面铺开。
+  \item \textbf{再做 depth story。} 先 equal-width 看趋势，再用 matched-budget depth 约束结构性结论。
+  \item \textbf{再做 Gym same-stack env sweep。} 用 Hopper / Walker2d / HalfCheetah 看这个故事是不是只在一个环境成立。
+  \item \textbf{最后补 RTG alignment 和 mechanism。} 这些图是解释和加固，不是用来替代主结果。
+\end{enumerate}
+
+\section{实验优先级}
+
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.13\textwidth} >{\raggedright\arraybackslash}p{0.27\textwidth} X}
+\toprule
+\textbf{优先级} & \textbf{实验} & \textbf{作用} \\
+\midrule
+P0 & 全量回归 / sanity / launcher dry-run & 保证 dev stack 正常，避免浪费 GPU 周期 \\
+P1 & Hopper same-stack attribution & 决定论文是否站得住的第一因果链 \\
+P2 & Hopper query-mode sweep & 决定 VCDR 是否值得成为论文主角 \\
+P3 & Hopper online compare & 决定 online 是否能成为主文 strengthening 轴 \\
+P4 & 关键 seed sweep & 判断结论稳不稳 \\
+P5 & same-stack depth + matched-budget depth & 判断 deeper-is-better 说法能不能写进主文 \\
+P6 & Gym same-stack env sweep & 判断是否能讲跨环境泛化 \\
+P7 & RTG-grid + mechanism analysis & 解释为什么有效，支撑 reviewer 问题 \\
+P8 & Maze2D / AntMaze & 现在不该进入主线，除非 runtime 真的补齐 \\
+\bottomrule
+\end{tabularx}
+
+\section{Go / No-Go 判断}
+
+\subsection*{Gate 1：BAR 是否成立}
+
+\begin{itemize}
+  \item \textbf{Go：} BAR 相比 \texttt{vanilla\_dev} 有稳定正增益。
+  \item \textbf{No-Go：} BAR 不比 \texttt{vanilla\_dev} 好，或者只在偶然 seed 好。此时不要继续扩展 VCDR 分支。
+\end{itemize}
+
+\subsection*{Gate 2：VCDR 是否成立}
+
+\begin{itemize}
+  \item \textbf{Go：} \texttt{state\_rtg\_value} 比 static BAR 更强，或者至少在 online / alignment 上有明确优势。
+  \item \textbf{No-Go：} VCDR 没有明显优于 BAR。此时把 VCDR 降级成 exploratory extension。
+\end{itemize}
+
+\subsection*{Gate 3：第二支柱是什么}
+
+\begin{itemize}
+  \item \textbf{若 online 强：} 主文第二支柱写 offline-to-online relevance。
+  \item \textbf{若 depth 强：} 主文第二支柱写 compute-aware depth story。
+  \item \textbf{若 alignment / mechanism 最清楚：} 主文第二支柱写 RTG/mechanism support。
+  \item \textbf{若都不强：} 立刻收缩战线，不要硬凑大论文。
+\end{itemize}
+
+\section{现在不该做什么}
+
+\begin{itemize}
+  \item 不要现在加 advantage-conditioned routing。
+  \item 不要现在加 uncertainty-conditioned routing。
+  \item 不要现在加 Q-conditioned routing。
+  \item 不要把 Maze2D / AntMaze 写成当前论文主结果。
+  \item 不要在主结论没稳之前同时扩展太多分支。
+\end{itemize}
+
+\section{每天打开先看这三件事}
+
+\begin{enumerate}
+  \item \textbf{主表有没有更清楚？} 也就是 same-stack / query-mode / online 三条线里，谁赢、赢多少、稳不稳。
+  \item \textbf{主线有没有变窄而更强？} 如果没有，就说明又在发散。
+  \item \textbf{下一轮实验是不是只服务一个明确问题？} 如果不是，就先别跑。
+\end{enumerate}
+
+\section{现在立刻做的前三步}
+
+\begin{enumerate}
+  \item 跑完并聚合 Hopper same-stack attribution，决定 BAR 是否真成立。
+  \item 跑完并聚合 Hopper query-mode sweep，决定 VCDR 是否值得做主角。
+  \item 跑完 Hopper online compare，并与 RTG-grid / mechanism 中最清楚的一条证据绑定，决定论文第二支柱。
+\end{enumerate}
+
+\paragraph{最终原则}
+这篇论文当前最应该追求的不是“更复杂”，而是“更干净、更可归因、更像一篇顶会主线论文”。能成立的最强版本，是一篇 same-stack attribution 清晰、VCDR 增益可解释、并带一条强 strengthening 证据的 depth-routing paper。
+
+\end{document}

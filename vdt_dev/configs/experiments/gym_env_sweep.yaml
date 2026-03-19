@@ -1,0 +1,10 @@
+name: gym_env_sweep
+family: env_sweep
+description: Step 3 BAR/VCDR gym sweep over hopper/walker2d/halfcheetah for static and state_rtg_value.
+envs: [hopper-medium-v2, walker2d-medium-v2, halfcheetah-medium-v2]
+seeds: [0]
+query_modes: [static, state_rtg_value]
+num_layers: [6]
+output_root: vdt_dev/outputs
+notes:
+  - Safe to override env_name at launch time because runner derives env targets, reward scale, and observation/action dimensions from env_name, not from Hopper-only constants in this YAML.

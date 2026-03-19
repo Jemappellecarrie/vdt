@@ -264,9 +264,18 @@ def evaluate_episode_rtg(
         state, reward, done, _ = env.step(action)
         
 
-        cur_state = torch.from_numpy(state).to(device).reshape(1, state_dim)
+        cur_state = torch.from_numpy(state).to(
+            device=device,
+            dtype=torch.float32,
+        ).reshape(1, state_dim)
         states = torch.cat([states, cur_state], dim=0)
-        actions = torch.cat([actions, torch.tensor(action, device=device).reshape(1, -1)], dim=0)
+        actions = torch.cat(
+            [
+                actions,
+                torch.tensor(action, device=device, dtype=torch.float32).reshape(1, -1),
+            ],
+            dim=0,
+        )
 
 
         raw_rtg = target_return[:, -1].unsqueeze(1) - (reward / scale)
@@ -307,7 +316,7 @@ def vec_evaluate_episode_rtg(
         use_mean=True,
     ):
 
-    num_envs=1
+    num_envs = int(getattr(env, "num_envs", 1) or 1)
     model.eval()
     # q_network.eval()
     model.to(device=device)
@@ -316,7 +325,7 @@ def vec_evaluate_episode_rtg(
     state_mean = torch.from_numpy(state_mean).to(device=device)
     state_std = torch.from_numpy(state_std).to(device=device)
 
-    state = env.reset()
+    state = np.asarray(env.reset(), dtype=np.float32).reshape(num_envs, state_dim)
 
     states = (torch.from_numpy(state).reshape(num_envs, state_dim).to(device=device, dtype=torch.float32)).reshape(num_envs, -1, state_dim)
     next_states = torch.zeros(0, device=device, dtype=torch.float32)
@@ -332,6 +341,23 @@ def vec_evaluate_episode_rtg(
     episode_return = np.zeros((num_envs, 1)).astype(float)
     episode_length = np.full(num_envs, np.inf)
     unfinished = np.ones(num_envs).astype(bool)
+
+    def _reshape_reward_array(value):
+        reward_array = np.asarray(value, dtype=np.float32)
+        if reward_array.ndim == 0:
+            return reward_array.reshape(1, 1)
+        if reward_array.ndim == 1:
+            return reward_array.reshape(num_envs, 1)
+        return reward_array.reshape(num_envs, -1)
+
+    def _reshape_done_array(value):
+        done_array = np.asarray(value, dtype=bool)
+        if done_array.ndim == 0:
+            return done_array.reshape(1)
+        return done_array.reshape(num_envs)
+
+    def _reshape_state_array(value):
+        return np.asarray(value, dtype=np.float32).reshape(num_envs, state_dim)
 
     for t in range(max_ep_len):
 
@@ -355,24 +381,38 @@ def vec_evaluate_episode_rtg(
 
         action = action.clamp(*model.action_range)
 
-        state, reward, done, _ = env.step(action.detach().cpu().numpy())
+        action_np = action.detach().cpu().numpy()
+        env_action = action_np.reshape(act_dim) if num_envs == 1 else action_np
+        state, reward, done, info = env.step(env_action)
 
-        state=state.reshape(1, state_dim)
-        reward=reward.reshape(1, 1)
-        done=np.array([done])
+        state = _reshape_state_array(state)
+        reward = _reshape_reward_array(reward)
+        done = _reshape_done_array(done)
         
 
         episode_return[unfinished] += reward[unfinished].reshape(-1, 1)
 
         actions[:, -1] = action
 
-        next_state = _['terminal_observation'] if ('terminal_observation' in _) else state
+        next_state = info.get('terminal_observation') if ('terminal_observation' in info) else state
+        next_state = _reshape_state_array(next_state)
     
-        state = (torch.from_numpy(state).to(device=device).reshape(num_envs, -1, state_dim))
+        state = (
+            torch.from_numpy(state)
+            .to(device=device, dtype=torch.float32)
+            .reshape(num_envs, -1, state_dim)
+        )
         states = torch.cat([states, state], dim=1)
-        next_state = (torch.from_numpy(next_state).to(device=device).reshape(num_envs, -1, state_dim))
+        next_state = (
+            torch.from_numpy(next_state)
+            .to(device=device, dtype=torch.float32)
+            .reshape(num_envs, -1, state_dim)
+        )
         next_states = torch.cat([next_states.float(), next_state.float()], dim=1)
-        reward = torch.from_numpy(reward).to(device=device).reshape(num_envs, 1)
+        reward = torch.from_numpy(reward).to(
+            device=device,
+            dtype=torch.float32,
+        ).reshape(num_envs, 1)
         rewards[:, -1] = reward
 
         raw_rtg = target_return[:, -1].unsqueeze(1) - (reward / scale)

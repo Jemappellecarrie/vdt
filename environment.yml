@@ -1,0 +1,33 @@
+name: vdt
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+# Note:
+# This environment covers Python dependencies for VDT.
+# MuJoCo 2.1 binaries are still required separately for mujoco-py.
+dependencies:
+  - python=3.8
+  - pip
+  - numpy=1.23.5
+  - pytorch=2.0.1
+  - tqdm=4.66.5
+  - cython<3
+  - h5py=3.8.0
+  - setuptools<70
+  - wheel
+  - protobuf<5
+  - glew
+  - mesalib<25.1.0
+  - glfw
+  - patchelf
+  - xorg-libx11
+  - xorg-libxext
+  - xorg-xorgproto
+  - pip:
+      - gym==0.23.1
+      - d4rl==1.1
+      - mujoco-py==2.1.2.14
+      - transformers==4.30.2
+      - wandb==0.16.6

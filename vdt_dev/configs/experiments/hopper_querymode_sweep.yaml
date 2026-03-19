@@ -1,0 +1,8 @@
+name: hopper_querymode_sweep
+family: query_mode_sweep
+description: Hopper medium Step 3 query-mode sweep over static/state/state_rtg/state_rtg_value at 6 layers.
+env_name: hopper-medium-v2
+seeds: [0]
+query_modes: [static, state, state_rtg, state_rtg_value]
+num_layers: [6]
+output_root: vdt_dev/outputs
