@@ -7,6 +7,7 @@
 \usepackage{hyperref}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,shapes.geometric,backgrounds,calc}
+\usepackage{graphicx}
 
 \hypersetup{
   colorlinks=true,
@@ -67,8 +68,21 @@ The dev test suite is also nontrivial. The current repository contains tests for
 Value guidance in \vdt{} should not stop at objectives and target returns; it should also determine which \emph{depth-level representations} the decision model relies on when choosing actions.
 
 \subsection{Three-sentence abstract-level story}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{vdt.png}
+    \caption{vdt.png}
+\end{figure}
 
 The original \vdt{} already uses value information in the critic/value objectives and in target-return-guided decision making, but it still aggregates transformer depth in a standard residual manner. This project asks whether the actor should also perform \emph{depth-wise residual routing}, first with static routing over grouped residual sites (\barname{}) and then with state/RTG/value-conditioned routing (\vcdr{}), while keeping the original Q/V objectives and sampling semantics fixed. The resulting same-stack comparison---\vanilla{} vs.\ BAR vs.\ VCDR---is the cleanest path to attributing gains to depth routing itself rather than to unrelated training changes.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{VDT.jpg}
+    \caption{Overview of Attention Residuals}
+\end{figure}
+\subsection{Three-sentence abstract-level story}
+
 
 \subsection{Why this story is plausible}
 
