@@ -50,6 +50,198 @@ The \texttt{vdt\_dev/} stack has progressed through four concrete stages:
   \item \textbf{Step 4: attribution, rigor, and stronger setting.} The repo now includes a same-stack \vanilla{} baseline, compute-reporting plus approximate matched-budget depth presets, and a dev-stack offline-to-online tuning path for Hopper. This gives the project a much stronger paper framing than a pure architecture tweak inside offline Gym-only experiments.
 \end{enumerate}
 
+%% ============================================================
+\section{Standard Residual Connection (Baseline)}
+%% ============================================================
+
+The standard residual update:
+\begin{equation}
+    h_l = h_{l-1} + f_{l-1}(h_{l-1})
+\end{equation}
+
+Unrolling the recurrence:
+\begin{equation}
+    h_l = h_1 + \sum_{i=1}^{l-1} f_i(h_i)
+\end{equation}
+
+Every layer receives the same uniformly-weighted sum of all prior layer outputs --- this is what our depth routing aims to improve.
+
+
+%% ============================================================
+\section{Full Attention Residuals}
+%% ============================================================
+
+Replace fixed accumulation with learned softmax attention over depth:
+\begin{equation}
+    h_l = \sum_{i=0}^{l-1} \alpha_{i \to l} \cdot v_i
+\end{equation}
+
+The attention weights are computed via softmax:
+\begin{equation}
+    \alpha_{i \to l} = \frac{\phi(q_l,\, k_i)}{\sum_{j=0}^{l-1} \phi(q_l,\, k_j)}
+\end{equation}
+
+with the kernel function:
+\begin{equation}
+    \phi(q,\, k) = \exp\!\Big(q^{\top}\, \mathrm{RMSNorm}(k)\Big)
+\end{equation}
+
+Queries and keys are defined as:
+\begin{equation}
+    q_l = w_l, \qquad
+    k_i = v_i =
+    \begin{cases}
+        h_1        & i = 0 \\
+        f_i(h_i)   & 1 \le i \le l-1
+    \end{cases}
+\end{equation}
+
+where $w_l \in \mathbb{R}^d$ is a layer-specific learnable pseudo-query vector.
+
+
+%% ============================================================
+\section{Block Attention Residuals (VDT-BAR)}
+%% ============================================================
+
+Partition $L$ layers into $N$ blocks of $S = L/N$ layers each.
+
+\paragraph{Intra-block accumulation.}
+Within each block $n$, layer outputs are summed:
+\begin{equation}
+    b_n = \sum_{j \in \mathcal{B}_n} f_j(h_j)
+\end{equation}
+
+Let $b_n^i$ denote the partial sum over the first $i$ layers in $\mathcal{B}_n$, so that $b_n = b_n^S$.
+
+\paragraph{Inter-block attention.}
+For the $i$-th layer in block $n$, the value matrix is:
+\begin{equation}
+    V =
+    \begin{cases}
+        [b_0,\, b_1,\, \ldots,\, b_{n-1}]^{\top}
+            & \text{if } i = 1 \text{ (first layer of block $n$)} \\[6pt]
+        [b_0,\, b_1,\, \ldots,\, b_{n-1},\, b_n^{i-1}]^{\top}
+            & \text{if } i \ge 2 \text{ (subsequent layers)}
+    \end{cases}
+\end{equation}
+
+where $b_0 = h_1$ (token embedding). Keys and attention weights follow Eq.~(4) and Eq.~(6).
+
+\paragraph{Efficiency.}
+Memory reduces from $O(Ld)$ to $O(Nd)$, and computation from $O(L^2)$ to $O(N^2)$.
+Empirically, $N \approx 8$ recovers most of the benefit.
+
+
+%% ============================================================
+\section{Value-Conditioned Depth Routing (VDT-VCDR)}
+%% ============================================================
+
+In VDT-VCDR, the static pseudo-query $w_l$ is augmented with a \emph{dynamic} residual that depends on the decision context:
+\begin{equation}
+    q_l = w_l + \Delta q_l
+\end{equation}
+
+The project supports four query modes:
+\begin{itemize}[nosep]
+    \item \texttt{static}: $\Delta q_l = 0$ (reduces to BAR)
+    \item \texttt{state}: $\Delta q_l = g_\theta(s_t)$
+    \item \texttt{state\_rtg}: $\Delta q_l = g_\theta(s_t,\, \hat{r}_t)$
+    \item \texttt{state\_rtg\_value}: $\Delta q_l = g_\theta\!\big(s_t,\, \hat{r}_t,\, \mathrm{sg}[V_\psi(s_t)]\big)$
+\end{itemize}
+
+where $\mathrm{sg}[\cdot]$ denotes stop-gradient (detached value), ensuring the value function does not receive gradients through the routing path. The fusion is additive, preserving the static query as the base routing signal.
+
+
+%% ============================================================
+\section{VDT Actor Loss (Kept Fixed)}
+%% ============================================================
+
+The advantage-weighted actor loss with value regularization (unchanged from the original VDT):
+\begin{equation}
+    \mathcal{L} = \mathbb{E}_{\substack{\tau_t \sim D \\ (s_t, a_t) \sim \tau_t}}
+    \Big[
+        \exp\!\big(\eta \cdot A_t\big)\,
+        \|\pi_{\mathrm{DT}}(\tau_t) - a_t\|^2
+        \;-\;
+        \lambda \cdot \min_{i=1,2} Q_{\hat{\theta}_i}\!\big(s_t,\, \pi_{\mathrm{DT}}(\tau_t)\big)
+    \Big]
+\end{equation}
+
+where the advantage is:
+\begin{equation}
+    A_t = \min_{i=1,2} Q_{\hat{\theta}_i}(s_t,\, a_t) - V_\psi(s_t)
+\end{equation}
+
+$\eta$ is an inverse temperature and $\lambda$ balances the two loss terms.
+
+
+%% ============================================================
+\section{Value Function Training (Kept Fixed)}
+%% ============================================================
+
+\paragraph{State-value function.}
+Trained via expectile regression:
+\begin{equation}
+    \mathcal{L}_V(\psi)
+    = \mathbb{E}_{(s_t, a_t) \sim D}\!
+    \Big[
+        L_2^{\epsilon}\!\Big(Q_{\hat{\theta}}(s_t, a_t) - V_\psi(s_t)\Big)
+    \Big]
+\end{equation}
+
+where $L_2^{\epsilon}(u) = |\epsilon - \mathbf{1}(u < 0)|\, u^2$ and $\epsilon > 0.5$.
+
+\paragraph{Q-function.}
+Updated via the $n$-step Bellman target:
+\begin{equation}
+    \mathcal{L}_Q(\theta_i)
+    = \mathbb{E}_{(s_t, a_t, r_t, \ldots, s_{t+n}) \sim D}\!
+    \left[
+        \left(
+            \sum_{k=0}^{n-1} \gamma^k r_{t+k}
+            + \gamma^n V_\psi(s_{t+n})
+            - Q_{\theta_i}(s_t, a_t)
+        \right)^{\!2}
+    \right]
+\end{equation}
+
+
+%% ============================================================
+\section{Depth Mixing Matrix (Analysis Framework)}
+%% ============================================================
+
+All residual variants can be unified as:
+\begin{equation}
+    h_l = \sum_{i=0}^{l-1} M_{i \to l}\, v_i
+\end{equation}
+
+\begin{itemize}[nosep]
+    \item \textbf{Standard residual:} $M_{i \to l} = 1$ for all $i < l$ (all-ones lower-triangular).
+    \item \textbf{Full AttnRes:} $M_{i \to l} = \alpha_{i \to l}$ (dense, rank-$L$, input-dependent).
+    \item \textbf{Block AttnRes:} $M_{i \to l} = \alpha_{n \to l}$ for all $i \in \mathcal{B}_n$ (effective rank between $N$ and $N+S$).
+\end{itemize}
+
+This provides a clean lens for comparing vanilla\_dev (standard) vs.\ BAR (block) vs.\ VCDR (block + dynamic query).
+
+
+%% ============================================================
+\section{VDT Sampling Process with Q-Evaluation}
+%% ============================================================
+
+At timestep $t$, the optimal action is selected across $m$ candidate RTGs using:
+\begin{equation}
+    Q_t^k = \sum_{i=0}^{E} \gamma^i \cdot Q\!\big(s_{t+i}^k,\, a_{t+i}^k\big)
+\end{equation}
+
+\begin{equation}
+    a_t = \arg\max_{a_t^k}\; Q_t^k
+\end{equation}
+
+where $E$ is the evaluation horizon and trajectories are predicted autoregressively under each RTG $\hat{r}_0^k$.
+
+\bigskip
+\bigskip
+\bigskip
 Important real boundaries remain:
 
 \begin{itemize}
